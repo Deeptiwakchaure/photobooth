@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth Pro - Create Amazing Photo Strips</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+    <style>
+        :root {
+            --primary-dark: #ff006e;
+            --primary-light: #ffb3c1;
+            --secondary-dark: #ff4081;
+            --secondary-light: #ff8fa3;
+            --bg-dark: #000;
+            --bg-light: #fff5f7;
+            --text-dark: #fff;
+            --text-light: #333;
+            --panel-bg-dark: rgba(0, 0, 0, 0.3);
+            --panel-bg-light: rgba(255, 255, 255, 0.95);
+            --border-dark: rgba(255, 255, 255, 0.2);
+            --border-light: #e0e0e0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-dark) 100%);
+            color: var(--text-dark);
+            overflow: hidden;
+            height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme {
+            background: linear-gradient(135deg, var(--primary-light) 0%, var(--secondary-light) 100%);
+            color: var(--text-light);
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--panel-bg-dark);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme .app-container {
+            background: var(--panel-bg-light);
+        }
+
+        .camera-section {
+            flex: 1;
+            position: relative;
+            background: var(--bg-dark);
+            border-radius: 20px 0 0 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme .camera-section {
+            background: var(--bg-light);
+        }
+
+        .camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .face-detection-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.6) 100%);
+        }
+
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        body.light-theme .logo {
+            color: var(--text-light);
+            text-shadow: none;
+        }
+
+        .logo i {
+            color: var(--primary-dark);
+        }
+
+        body.light-theme .logo i {
+            color: var(--primary-light);
+        }
+
+        .session-info {
+            background: var(--border-dark);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        body.light-theme .session-info {
+            background: rgba(0,0,0,0.1);
+        }
+
+        .zoom-controls {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        body.light-theme .zoom-btn {
+            background: rgba(0, 0, 0, 0.1);
+            color: var(--text-light);
+        }
+
+        .zoom-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .bottom-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .capture-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+            border: 5px solid white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            transition: all 0.3s;
+            box-shadow: 0 8px 30px rgba(255, 0, 110, 0.5);
+        }
+
+        body.light-theme .capture-btn {
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            box-shadow: 0 8px 30px rgba(255, 179, 193, 0.5);
+        }
+
+        .capture-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 40px rgba(255, 0, 110, 0.7);
+        }
+
+        body.light-theme .capture-btn:hover {
+            box-shadow: 0 10px 40px rgba(255, 179, 193, 0.7);
+        }
+
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-panel {
+            width: 450px;
+            background: var(--panel-bg-dark);
+            color: var(--text-dark);
+            border-radius: 0 20px 20px 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme .control-panel {
+            background: var(--panel-bg-light);
+            color: var(--text-light);
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+            color: white;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme .panel-header {
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            color: var(--text-light);
+        }
+
+        .panel-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .panel-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .step {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transition: all 0.3s;
+        }
+
+        .step.active {
+            background: white;
+            transform: scale(1.3);
+        }
+
+        .step-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .step-section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .step-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-dark);
+        }
+
+        body.light-theme .section-title {
+            color: var(--text-light);
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .layout-option {
+            background: white;
+            border: 2px solid var(--border-light);
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        body.light-theme .layout-option {
+            background: var(--bg-light);
+        }
+
+        .layout-option:hover {
+            border-color: var(--primary-dark);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        body.light-theme .layout-option:hover {
+            border-color: var(--primary-light);
+        }
+
+        .layout-option.active {
+            border-color: var(--primary-dark);
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+            color: white;
+        }
+
+        body.light-theme .layout-option.active {
+            border-color: var(--primary-light);
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            color: var(--text-light);
+        }
+
+        .layout-preview {
+            height: 120px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding: 10px;
+        }
+
+        body.light-theme .layout-preview {
+            background: #fff;
+        }
+
+        .layout-preview .photo-slot {
+            flex: 1;
+            background: #ddd;
+            border-radius: 5px;
+        }
+
+        body.light-theme .layout-preview .photo-slot {
+            background: #f0f0f0;
+        }
+
+        .layout-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .filter-option {
+            background: white;
+            border: 2px solid var(--border-light);
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.light-theme .filter-option {
+            background: var(--bg-light);
+        }
+
+        .filter-option:hover {
+            border-color: var(--primary-dark);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        body.light-theme .filter-option:hover {
+            border-color: var(--primary-light);
+        }
+
+        .filter-option.active {
+            border-color: var(--primary-dark);
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+            color: white;
+        }
+
+        body.light-theme .filter-option.active {
+            border-color: var(--primary-light);
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            color: var(--text-light);
+        }
+
+        .filter-option i {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .filter-name {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .decoration-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .decoration-option {
+            background: white;
+            border: 2px solid var(--border-light);
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+        }
+
+        body.light-theme .decoration-option {
+            background: var(--bg-light);
+        }
+
+        .decoration-option:hover {
+            border-color: var(--primary-dark);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        body.light-theme .decoration-option:hover {
+            border-color: var(--primary-light);
+        }
+
+        .decoration-option.active {
+            border-color: var(--primary-dark);
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+        }
+
+        body.light-theme .decoration-option.active {
+            border-color: var(--primary-light);
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+        }
+
+        .settings-list {
+            list-style: none;
+        }
+
+        .settings-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .settings-list li:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        body.light-theme .setting-label {
+            color: #666;
+        }
+
+        .toggle-switch {
+            width: 50px;
+            height: 26px;
+            background: var(--border-light);
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: var(--primary-dark);
+        }
+
+        body.light-theme .toggle-switch.active {
+            background: var(--primary-light);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(24px);
+        }
+
+        .preview-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        body.light-theme .preview-container {
+            background: var(--bg-light);
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .no-preview {
+            color: #999;
+            padding: 40px;
+        }
+
+        body.light-theme .no-preview {
+            color: #aaa;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+            color: white;
+        }
+
+        body.light-theme .btn-primary {
+            background: linear-gradient(135deg, var(--primary-light), var(--secondary-light));
+            color: var(--text-light);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 0, 110, 0.4);
+        }
+
+        body.light-theme .btn-primary:hover {
+            box-shadow: 0 5px 15px rgba(255, 179, 193, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        body.light-theme .btn-secondary {
+            background: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        body.light-theme .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 150px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 0 50px rgba(0,0,0,0.8);
+            display: none;
+            z-index: 20;
+            animation: pulse 1s;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .flash-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .flash-effect.active {
+            animation: flash 0.3s;
+        }
+
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 0.9; }
+            100% { opacity: 0; }
+        }
+
+        .photo-gallery {
+            margin-top: 20px;
+        }
+
+        .gallery-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-dark);
+        }
+
+        body.light-theme .gallery-title {
+            color: var(--text-light);
+        }
+
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .photo-item {
+            aspect-ratio: 1;
+            background: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        body.light-theme .photo-item {
+            background: #fff;
+        }
+
+        .photo-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .photo-item:hover .photo-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            width: 30px;
+            height: 30px;
+            background: rgba(0,0,0,0.7);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .no-camera {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            gap: 20px;
+            padding: 40px;
+        }
+
+        .no-camera i {
+            font-size: 60px;
+            color: #666;
+        }
+
+        .no-camera h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .no-camera p {
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        .music-controls {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .music-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        body.light-theme .music-btn {
+            background: rgba(0, 0, 0, 0.1);
+            color: var(--text-light);
+        }
+
+        .music-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .gif-preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .gif-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                border-radius: 0;
+            }
+            
+            .camera-section {
+                border-radius: 0;
+                height: 60vh;
+            }
+            
+            .control-panel {
+                width: 100%;
+                height: 40vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-toggle">
+        <button class="btn btn-secondary" onclick="photoBooth.toggleTheme()">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+    </div>
+
+    <div class="app-container">
+        <div class="camera-section">
+            <video id="cameraFeed" class="camera-feed" autoplay muted playsinline></video>
+            <canvas id="faceCanvas" class="face-detection-canvas"></canvas>
+            <canvas id="canvas" style="display: none;"></canvas>
+            
+            <div class="no-camera" id="noCameraMessage" style="display: none;">
+                <i class="fas fa-camera-slash"></i>
+                <h3>Camera Access Required</h3>
+                <p>Please allow camera access to use PhotoBooth</p>
+                <button class="capture-btn" onclick="location.reload()">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+            
+            <div class="camera-overlay"></div>
+            <div class="flash-effect" id="flashEffect"></div>
+            
+            <div class="top-bar">
+                <div class="logo">
+                    <i class="fas fa-camera-retro"></i>
+                    PhotoBooth Pro
+                </div>
+                <div class="session-info">
+                    <i class="fas fa-camera"></i> Ready to capture
+                </div>
+            </div>
+            
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="photoBooth.zoomIn()">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="zoom-btn" onclick="photoBooth.zoomOut()">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="zoom-btn" onclick="photoBooth.resetZoom()">
+                    <i class="fas fa-compress"></i>
+                </button>
+            </div>
+            
+            <div class="bottom-controls">
+                <button class="capture-btn" id="captureBtn">
+                    <i class="fas fa-camera"></i>
+                </button>
+            </div>
+            
+            <div class="music-controls">
+                <button class="music-btn" id="musicToggle" onclick="photoBooth.toggleMusic()">
+                    <i class="fas fa-music"></i>
+                </button>
+            </div>
+            
+            <div class="countdown" id="countdown"></div>
+        </div>
+
+        <div class="control-panel">
+            <div class="panel-header">
+                <div class="panel-title">Create Your Photo Strip</div>
+                <div class="panel-subtitle">Follow the steps below</div>
+                <div class="step-indicator">
+                    <div class="step active" data-step="1"></div>
+                    <div class="step" data-step="2"></div>
+                    <div class="step" data-step="3"></div>
+                    <div class="step" data-step="4"></div>
+                </div>
+            </div>
+
+            <div class="step-content">
+                <!-- Step 1: Choose Layout -->
+                <div class="step-section active" id="step1">
+                    <h2 class="section-title">1. Choose Your Layout</h2>
+                    <div class="layout-grid">
+                        <div class="layout-option active" data-layout="strip">
+                            <div class="layout-preview">
+                                <div class="photo-slot"></div>
+                                <div class="photo-slot"></div>
+                                <div class="photo-slot"></div>
+                                <div class="photo-slot"></div>
+                            </div>
+                            <div class="layout-name">Classic Strip</div>
+                        </div>
+                        <div class="layout-option" data-layout="single">
+                            <div class="layout-preview">
+                                <div class="photo-slot" style="height: 100%;"></div>
+                            </div>
+                            <div class="layout-name">Single Photo</div>
+                        </div>
+                        <div class="layout-option" data-layout="double">
+                            <div class="layout-preview" style="flex-direction: row;">
+                                <div class="photo-slot"></div>
+                                <div class="photo-slot"></div>
+                            </div>
+                            <div class="layout-name">Double Frame</div>
+                        </div>
+                        <div class="layout-option" data-layout="quad">
+                            <div class="layout-preview" style="flex-wrap: wrap;">
+                                <div class="photo-slot" style="width: calc(50% - 2.5px);"></div>
+                                <div class="photo-slot" style="width: calc(50% - 2.5px);"></div>
+                                <div class="photo-slot" style="width: calc(50% - 2.5px);"></div>
+                                <div class="photo-slot" style="width: calc(50% - 2.5px);"></div>
+                            </div>
+                            <div class="layout-name">Four Square</div>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="photoBooth.nextStep()">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Take Photos -->
+                <div class="step-section" id="step2">
+                    <h2 class="section-title">2. Take Your Photos</h2>
+                    <div class="preview-container">
+                        <div class="no-preview">
+                            <i class="fas fa-camera" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
+                            Click the camera button to start
+                        </div>
+                        <img id="previewImage" class="preview-image" style="display: none;">
+                    </div>
+                    <ul class="settings-list">
+                        <li>
+                            <span class="setting-label">3-Second Countdown</span>
+                            <div class="toggle-switch" id="timerToggle"></div>
+                        </li>
+                        <li>
+                            <span class="setting-label">Flash Effect</span>
+                            <div class="toggle-switch" id="flashToggle"></div>
+                        </li>
+                        <li>
+                            <span class="setting-label">Face Detection</span>
+                            <div class="toggle-switch active" id="faceToggle"></div>
+                        </li>
+                        <li>
+                            <span class="setting-label">Number of Photos</span>
+                            <select id="photoCount" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ddd;">
+                                <option value="1">1 Photo</option>
+                                <option value="2">2 Photos</option>
+                                <option value="3">3 Photos</option>
+                                <option value="4" selected>4 Photos</option>
+                            </select>
+                        </li>
+                    </ul>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="photoBooth.prevStep()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn btn-primary" id="captureNextBtn" disabled onclick="photoBooth.nextStep()">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Add Effects -->
+                <div class="step-section" id="step3">
+                    <h2 class="section-title">3. Add Effects & Decorations</h2>
+                    <div class="preview-container">
+                        <img id="effectPreviewImage" class="preview-image" style="display: none;">
+                    </div>
+                    
+                    <h3 style="margin: 20px 0 10px; font-size: 16px; color: #666;">Filters</h3>
+                    <div class="filter-grid">
+                        <div class="filter-option active" data-filter="none">
+                            <i class="fas fa-ban"></i>
+                            <div class="filter-name">None</div>
+                        </div>
+                        <div class="filter-option" data-filter="grayscale">
+                            <i class="fas fa-adjust"></i>
+                            <div class="filter-name">B&W</div>
+                        </div>
+                        <div class="filter-option" data-filter="sepia">
+                            <i class="fas fa-sun"></i>
+                            <div class="filter-name">Sepia</div>
+                        </div>
+                        <div class="filter-option" data-filter="vintage">
+                            <i class="fas fa-film"></i>
+                            <div class="filter-name">Vintage</div>
+                        </div>
+                        <div class="filter-option" data-filter="cold">
+                            <i class="fas fa-snowflake"></i>
+                            <div class="filter-name">Cold</div>
+                        </div>
+                        <div class="filter-option" data-filter="warm">
+                            <i class="fas fa-fire"></i>
+                            <div class="filter-name">Warm</div>
+                        </div>
+                        <div class="filter-option" data-filter="dramatic">
+                            <i class="fas fa-bolt"></i>
+                            <div class="filter-name">Dramatic</div>
+                        </div>
+                        <div class="filter-option" data-filter="pastel">
+                            <i class="fas fa-palette"></i>
+                            <div class="filter-name">Pastel</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin: 20px 0 10px; font-size: 16px; color: #666;">Decorations</h3>
+                    <div class="decoration-grid">
+                        <div class="decoration-option" data-decoration="heart">❤️</div>
+                        <div class="decoration-option" data-decoration="star">⭐</div>
+                        <div class="decoration-option" data-decoration="smile">😊</div>
+                        <div class="decoration-option" data-decoration="glasses">🕶️</div>
+                        <div class="decoration-option" data-decoration="mustache">👨</div>
+                        <div class="decoration-option" data-decoration="crown">👑</div>
+                        <div class="decoration-option" data-decoration="hat">🎩</div>
+                        <div class="decoration-option" data-decoration="flower">🌸</div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="photoBooth.prevStep()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn btn-primary" onclick="photoBooth.nextStep()">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Download -->
+                <div class="step-section" id="step4">
+                    <h2 class="section-title">4. Download Your Photo Strip</h2>
+                    <div class="preview-container">
+                        <img id="finalPreviewImage" class="preview-image" style="display: none;">
+                    </div>
+                    
+                    <div class="gif-preview" id="gifPreview" style="display: none;">
+                        <h3 style="margin-bottom: 10px;">Animated GIF</h3>
+                        <img id="gifImage" style="display: none;">
+                        <button class="btn btn-primary" id="downloadGifBtn" style="display: none; margin-top: 10px;" onclick="photoBooth.downloadGif()">
+                            <i class="fas fa-download"></i> Download GIF
+                        </button>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="photoBooth.prevStep()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn btn-primary" id="downloadBtn" onclick="photoBooth.downloadPhoto()">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="btn btn-secondary" id="createGifBtn" onclick="photoBooth.createGif()">
+                            <i class="fas fa-film"></i> Create GIF
+                        </button>
+                    </div>
+                    
+                    <div class="photo-gallery">
+                        <h3 class="gallery-title">Recent Photo Strips</h3>
+                        <div class="photo-grid" id="photoGrid">
+                            <div style="grid-column: 1/-1; text-align: center; color: #999; padding: 20px;">
+                                <i class="fas fa-images" style="font-size: 30px; margin-bottom: 10px; display: block;"></i>
+                                Your photo strips will appear here
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="backgroundMusic" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        class PhotoBoothPro {
+            constructor() {
+                this.video = document.getElementById('cameraFeed');
+                this.canvas = document.getElementById('canvas');
+                this.faceCanvas = document.getElementById('faceCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.faceCtx = this.faceCanvas.getContext('2d');
+                this.captureBtn = document.getElementById('captureBtn');
+                this.countdown = document.getElementById('countdown');
+                this.flashEffect = document.getElementById('flashEffect');
+                this.noCameraMessage = document.getElementById('noCameraMessage');
+                this.photoGrid = document.getElementById('photoGrid');
+                this.captureNextBtn = document.getElementById('captureNextBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.backgroundMusic = document.getElementById('backgroundMusic');
+                this.musicToggle = document.getElementById('musicToggle');
+                
+                this.stream = null;
+                this.currentStep = 1;
+                this.currentLayout = 'strip';
+                this.currentFilter = 'none';
+                this.currentDecorations = [];
+                this.timerEnabled = false;
+                this.flashEnabled = false;
+                this.faceDetectionEnabled = true;
+                this.currentSession = [];
+                this.photos = JSON.parse(localStorage.getItem('photobooth-pro-photos') || '[]');
+                this.zoomLevel = 1;
+                this.isLightTheme = false;
+                this.currentGif = null;
+                
+                this.layoutConfig = {
+                    single: { photos: 1, width: 800, height: 600 },
+                    double: { photos: 2, width: 800, height: 400 },
+                    quad: { photos: 4, width: 800, height: 800 },
+                    strip: { photos: 4, width: 400, height: 1200 }
+                };
+                
+                this.filterEffects = {
+                    none: (imageData) => imageData,
+                    grayscale: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                            data[i] = avg;     // red
+                            data[i + 1] = avg; // green
+                            data[i + 2] = avg; // blue
+                        }
+                        return imageData;
+                    },
+                    sepia: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
+                            
+                            data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+                            data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+                            data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+                        }
+                        return imageData;
+                    },
+                    vintage: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
+                            
+                            data[i] = Math.min(255, r * 1.2);
+                            data[i + 1] = Math.min(255, g * 1.0);
+                            data[i + 2] = Math.min(255, b * 0.8);
+                        }
+                        return imageData;
+                    },
+                    cold: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, data[i] * 0.9);     // red
+                            data[i + 1] = Math.min(255, data[i + 1] * 1.0); // green
+                            data[i + 2] = Math.min(255, data[i + 2] * 1.2); // blue
+                        }
+                        return imageData;
+                    },
+                    warm: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, data[i] * 1.2);     // red
+                            data[i + 1] = Math.min(255, data[i + 1] * 1.1); // green
+                            data[i + 2] = Math.min(255, data[i + 2] * 0.8); // blue
+                        }
+                        return imageData;
+                    },
+                    dramatic: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, data[i] * 1.5);     // red
+                            data[i + 1] = Math.min(255, data[i + 1] * 1.2); // green
+                            data[i + 2] = Math.min(255, data[i + 2] * 0.8); // blue
+                        }
+                        return imageData;
+                    },
+                    pastel: (imageData) => {
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, data[i] * 0.8 + 50);     // red
+                            data[i + 1] = Math.min(255, data[i + 1] * 0.8 + 50); // green
+                            data[i + 2] = Math.min(255, data[i + 2] * 0.8 + 50); // blue
+                        }
+                        return imageData;
+                    }
+                };
+                
+                this.init();
+            }
+
+            async init() {
+                await this.setupCamera();
+                await this.loadFaceDetectionModels();
+                this.setupEventListeners();
+                this.updatePhotoGrid();
+                this.startFaceDetection();
+            }
+
+            async setupCamera() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        },
+                        audio: false
+                    });
+                    this.video.srcObject = this.stream;
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    this.video.style.display = 'none';
+                    this.noCameraMessage.style.display = 'flex';
+                }
+            }
+
+            async loadFaceDetectionModels() {
+                try {
+                    await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+                    await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+                    console.log('Face detection models loaded');
+                } catch (error) {
+                    console.error('Error loading face detection models:', error);
+                }
+            }
+
+            async startFaceDetection() {
+                if (!this.faceDetectionEnabled) return;
+                
+                const detectFaces = async () => {
+                    if (this.video.readyState === 4) {
+                        const detections = await faceapi.detectAllFaces(
+                            this.video, 
+                            new faceapi.TinyFaceDetectorOptions()
+                        ).withFaceLandmarks();
+                        
+                        // Clear previous drawings
+                        this.faceCtx.clearRect(0, 0, this.faceCanvas.width, this.faceCanvas.height);
+                        
+                        // Set canvas size to match video
+                        this.faceCanvas.width = this.video.videoWidth;
+                        this.faceCanvas.height = this.video.videoHeight;
+                        
+                        // Draw face detection boxes
+                        detections.forEach(detection => {
+                            const { x, y, width, height } = detection.detection.box;
+                            
+                            // Draw green rectangle
+                            this.faceCtx.strokeStyle = '#00ff00';
+                            this.faceCtx.lineWidth = 3;
+                            this.faceCtx.strokeRect(x, y, width, height);
+                            
+                            // Draw corner indicators
+                            const cornerSize = 20;
+                            this.faceCtx.strokeStyle = '#00ff00';
+                            this.faceCtx.lineWidth = 3;
+                            
+                            // Top-left corner
+                            this.faceCtx.beginPath();
+                            this.faceCtx.moveTo(x, y + cornerSize);
+                            this.faceCtx.lineTo(x, y);
+                            this.faceCtx.lineTo(x + cornerSize, y);
+                            this.faceCtx.stroke();
+                            
+                            // Top-right corner
+                            this.faceCtx.beginPath();
+                            this.faceCtx.moveTo(x + width - cornerSize, y);
+                            this.faceCtx.lineTo(x + width, y);
+                            this.faceCtx.lineTo(x + width, y + cornerSize);
+                            this.faceCtx.stroke();
+                            
+                            // Bottom-left corner
+                            this.faceCtx.beginPath();
+                            this.faceCtx.moveTo(x, y + height - cornerSize);
+                            this.faceCtx.lineTo(x, y + height);
+                            this.faceCtx.lineTo(x + cornerSize, y + height);
+                            this.faceCtx.stroke();
+                            
+                            // Bottom-right corner
+                            this.faceCtx.beginPath();
+                            this.faceCtx.moveTo(x + width - cornerSize, y + height);
+                            this.faceCtx.lineTo(x + width, y + height);
+                            this.faceCtx.lineTo(x + width, y + height - cornerSize);
+                            this.faceCtx.stroke();
+                        });
+                    }
+                    
+                    if (this.faceDetectionEnabled) {
+                        requestAnimationFrame(detectFaces);
+                    }
+                };
+                
+                detectFaces();
+            }
+
+            setupEventListeners() {
+                this.captureBtn.addEventListener('click', () => this.startPhotoSession());
+                
+                // Layout selection
+                document.querySelectorAll('.layout-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        document.querySelectorAll('.layout-option').forEach(opt => opt.classList.remove('active'));
+                        option.classList.add('active');
+                        this.currentLayout = option.dataset.layout;
+                    });
+                });
+
+                // Filter selection
+                document.querySelectorAll('.filter-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        document.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'));
+                        option.classList.add('active');
+                        this.currentFilter = option.dataset.filter;
+                        this.updateEffectPreview();
+                    });
+                });
+
+                // Decoration selection
+                document.querySelectorAll('.decoration-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        option.classList.toggle('active');
+                        const decoration = option.dataset.decoration;
+                        
+                        if (option.classList.contains('active')) {
+                            this.currentDecorations.push(decoration);
+                        } else {
+                            this.currentDecorations = this.currentDecorations.filter(d => d !== decoration);
+                        }
+                        
+                        this.updateEffectPreview();
+                    });
+                });
+
+                // Settings toggles
+                document.getElementById('timerToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.timerEnabled = e.target.classList.contains('active');
+                });
+
+                document.getElementById('flashToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.flashEnabled = e.target.classList.contains('active');
+                });
+
+                document.getElementById('faceToggle').addEventListener('click', (e) => {
+                    e.target.classList.toggle('active');
+                    this.faceDetectionEnabled = e.target.classList.contains('active');
+                    if (this.faceDetectionEnabled) {
+                        this.startFaceDetection();
+                    } else {
+                        this.faceCtx.clearRect(0, 0, this.faceCanvas.width, this.faceCanvas.height);
+                    }
+                });
+            }
+
+            toggleTheme() {
+                this.isLightTheme = !this.isLightTheme;
+                document.body.classList.toggle('light-theme');
+                
+                const themeIcon = document.getElementById('themeIcon');
+                themeIcon.className = this.isLightTheme ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            zoomIn() {
+                this.zoomLevel = Math.min(this.zoomLevel + 0.1, 2);
+                this.updateZoom();
+            }
+
+            zoomOut() {
+                this.zoomLevel = Math.max(this.zoomLevel - 0.1, 0.5);
+                this.updateZoom();
+            }
+
+            resetZoom() {
+                this.zoomLevel = 1;
+                this.updateZoom();
+            }
+
+            updateZoom() {
+                this.video.style.transform = `scale(${this.zoomLevel})`;
+            }
+
+            toggleMusic() {
+                if (this.backgroundMusic.paused) {
+                    this.backgroundMusic.play();
+                    this.musicToggle.innerHTML = '<i class="fas fa-pause"></i>';
+                } else {
+                    this.backgroundMusic.pause();
+                    this.musicToggle.innerHTML = '<i class="fas fa-music"></i>';
+                }
+            }
+
+            nextStep() {
+                if (this.currentStep < 4) {
+                    document.getElementById(`step${this.currentStep}`).classList.remove('active');
+                    this.currentStep++;
+                    document.getElementById(`step${this.currentStep}`).classList.add('active');
+                    
+                    // Update step indicators
+                    document.querySelectorAll('.step').forEach((step, index) => {
+                        if (index < this.currentStep) {
+                            step.classList.add('active');
+                        } else {
+                            step.classList.remove('active');
+                        }
+                    });
+                    
+                    // Special handling for step transitions
+                    if (this.currentStep === 3 && this.currentSession.length > 0) {
+                        this.updateEffectPreview();
+                    } else if (this.currentStep === 4 && this.currentSession.length > 0) {
+                        this.updateFinalPreview();
+                    }
+                }
+            }
+
+            prevStep() {
+                if (this.currentStep > 1) {
+                    document.getElementById(`step${this.currentStep}`).classList.remove('active');
+                    this.currentStep--;
+                    document.getElementById(`step${this.currentStep}`).classList.add('active');
+                    
+                    // Update step indicators
+                    document.querySelectorAll('.step').forEach((step, index) => {
+                        if (index < this.currentStep) {
+                            step.classList.add('active');
+                        } else {
+                            step.classList.remove('active');
+                        }
+                    });
+                }
+            }
+
+            async startPhotoSession() {
+                if (!this.stream) return;
+                
+                // Start background music
+                if (this.backgroundMusic.paused) {
+                    this.toggleMusic();
+                }
+                
+                this.captureBtn.style.pointerEvents = 'none';
+                this.currentSession = [];
+                
+                const photoCount = parseInt(document.getElementById('photoCount').value);
+                
+                for (let i = 0; i < photoCount; i++) {
+                    if (this.timerEnabled) {
+                        await this.startCountdown();
+                    }
+                    
+                    await this.capturePhoto();
+                    
+                    if (i < photoCount - 1) {
+                        await this.delay(1000);
+                    }
+                }
+                
+                // Stop background music
+                if (!this.backgroundMusic.paused) {
+                    this.toggleMusic();
+                }
+                
+                this.updatePreview();
+                this.captureNextBtn.disabled = false;
+                this.captureBtn.style.pointerEvents = 'auto';
+            }
+
+            async startCountdown() {
+                return new Promise(resolve => {
+                    let count = 3;
+                    this.countdown.style.display = 'block';
+                    this.countdown.textContent = count;
+                    
+                    const timer = setInterval(() => {
+                        count--;
+                        if (count > 0) {
+                            this.countdown.textContent = count;
+                        } else {
+                            this.countdown.style.display = 'none';
+                            clearInterval(timer);
+                            resolve();
+                        }
+                    }, 1000);
+                });
+            }
+
+            async capturePhoto() {
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+                
+                this.ctx.drawImage(this.video, 0, 0);
+                
+                if (this.flashEnabled) {
+                    this.triggerFlash();
+                }
+                
+                const dataURL = this.canvas.toDataURL('image/jpeg', 0.9);
+                this.currentSession.push(dataURL);
+                
+                await this.delay(200);
+            }
+
+            updatePreview() {
+                if (this.currentSession.length === 0) return;
+                
+                // Hide the "no preview" message
+                document.querySelector('.no-preview').style.display = 'none';
+                
+                // Create a temporary canvas to generate the preview
+                const config = this.layoutConfig[this.currentLayout];
+                const previewCanvas = document.createElement('canvas');
+                const previewCtx = previewCanvas.getContext('2d');
+                
+                // Set canvas size
+                previewCanvas.width = config.width;
+                previewCanvas.height = config.height;
+                
+                // White background
+                previewCtx.fillStyle = 'white';
+                previewCtx.fillRect(0, 0, config.width, config.height);
+                
+                // Process each photo in the session
+                this.currentSession.forEach((photoData, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Get the position for this photo in the layout
+                        const { x, y, width, height } = this.getPhotoPosition(index, config);
+                        
+                        // Draw the image to the preview canvas
+                        previewCtx.drawImage(img, x, y, width, height);
+                        
+                        // If this is the last photo, update the preview image
+                        if (index === this.currentSession.length - 1) {
+                            const finalDataURL = previewCanvas.toDataURL('image/jpeg', 0.9);
+                            const previewImage = document.getElementById('previewImage');
+                            previewImage.src = finalDataURL;
+                            previewImage.style.display = 'block';
+                        }
+                    };
+                    img.src = photoData;
+                });
+            }
+
+            updateEffectPreview() {
+                if (this.currentSession.length === 0) return;
+                
+                // Create a temporary canvas to generate the preview with effects
+                const config = this.layoutConfig[this.currentLayout];
+                const previewCanvas = document.createElement('canvas');
+                const previewCtx = previewCanvas.getContext('2d');
+                
+                // Set canvas size
+                previewCanvas.width = config.width;
+                previewCanvas.height = config.height;
+                
+                // White background
+                previewCtx.fillStyle = 'white';
+                previewCtx.fillRect(0, 0, config.width, config.height);
+                
+                // Process each photo in the session
+                this.currentSession.forEach((photoData, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create a temporary canvas for applying filters
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        // Set temp canvas size to match the image
+                        tempCanvas.width = img.width;
+                        tempCanvas.height = img.height;
+                        
+                        // Draw the image
+                        tempCtx.drawImage(img, 0, 0);
+                        
+                        // Apply filter if not none
+                        if (this.currentFilter !== 'none') {
+                            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                            const filteredData = this.filterEffects[this.currentFilter](imageData);
+                            tempCtx.putImageData(filteredData, 0, 0);
+                        }
+                        
+                        // Get the position for this photo in the layout
+                        const { x, y, width, height } = this.getPhotoPosition(index, config);
+                        
+                        // Draw the filtered image to the preview canvas
+                        previewCtx.drawImage(tempCanvas, x, y, width, height);
+                        
+                        // Add decorations
+                        if (this.currentDecorations.length > 0) {
+                            this.addDecorations(previewCtx, x, y, width, height);
+                        }
+                        
+                        // If this is the last photo, update the preview image
+                        if (index === this.currentSession.length - 1) {
+                            const finalDataURL = previewCanvas.toDataURL('image/jpeg', 0.9);
+                            const previewImage = document.getElementById('effectPreviewImage');
+                            previewImage.src = finalDataURL;
+                            previewImage.style.display = 'block';
+                        }
+                    };
+                    img.src = photoData;
+                });
+            }
+
+            updateFinalPreview() {
+                if (this.currentSession.length === 0) return;
+                
+                // Create a temporary canvas to generate the final preview
+                const config = this.layoutConfig[this.currentLayout];
+                const previewCanvas = document.createElement('canvas');
+                const previewCtx = previewCanvas.getContext('2d');
+                
+                // Set canvas size
+                previewCanvas.width = config.width;
+                previewCanvas.height = config.height;
+                
+                // White background
+                previewCtx.fillStyle = 'white';
+                previewCtx.fillRect(0, 0, config.width, config.height);
+                
+                // Process each photo in the session
+                this.currentSession.forEach((photoData, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create a temporary canvas for applying filters
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        // Set temp canvas size to match the image
+                        tempCanvas.width = img.width;
+                        tempCanvas.height = img.height;
+                        
+                        // Draw the image
+                        tempCtx.drawImage(img, 0, 0);
+                        
+                        // Apply filter if not none
+                        if (this.currentFilter !== 'none') {
+                            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                            const filteredData = this.filterEffects[this.currentFilter](imageData);
+                            tempCtx.putImageData(filteredData, 0, 0);
+                        }
+                        
+                        // Get the position for this photo in the layout
+                        const { x, y, width, height } = this.getPhotoPosition(index, config);
+                        
+                        // Draw the filtered image to the preview canvas
+                        previewCtx.drawImage(tempCanvas, x, y, width, height);
+                        
+                        // Add decorations
+                        if (this.currentDecorations.length > 0) {
+                            this.addDecorations(previewCtx, x, y, width, height);
+                        }
+                        
+                        // If this is the last photo, update the preview image
+                        if (index === this.currentSession.length - 1) {
+                            const finalDataURL = previewCanvas.toDataURL('image/jpeg', 0.9);
+                            const previewImage = document.getElementById('finalPreviewImage');
+                            previewImage.src = finalDataURL;
+                            previewImage.style.display = 'block';
+                        }
+                    };
+                    img.src = photoData;
+                });
+            }
+
+            addDecorations(ctx, x, y, width, height) {
+                // For each decoration, add it to the photo
+                this.currentDecorations.forEach(decoration => {
+                    ctx.save();
+                    
+                    // Set font size based on photo size
+                    const fontSize = Math.min(width, height) * 0.15;
+                    ctx.font = `${fontSize}px Arial`;
+                    
+                    // Position decorations in corners
+                    const positions = [
+                        { x: x + width * 0.1, y: y + height * 0.1 }, // Top-left
+                        { x: x + width * 0.9, y: y + height * 0.1 }, // Top-right
+                        { x: x + width * 0.1, y: y + height * 0.9 }, // Bottom-left
+                        { x: x + width * 0.9, y: y + height * 0.9 }  // Bottom-right
+                    ];
+                    
+                    // Get the decoration emoji
+                    let emoji = '';
+                    switch(decoration) {
+                        case 'heart': emoji = '❤️'; break;
+                        case 'star': emoji = '⭐'; break;
+                        case 'smile': emoji = '😊'; break;
+                        case 'glasses': emoji = '🕶️'; break;
+                        case 'mustache': emoji = '👨'; break;
+                        case 'crown': emoji = '👑'; break;
+                        case 'hat': emoji = '🎩'; break;
+                        case 'flower': emoji = '🌸'; break;
+                    }
+                    
+                    // Draw the emoji at each position
+                    positions.forEach(pos => {
+                        ctx.fillText(emoji, pos.x, pos.y);
+                    });
+                    
+                    ctx.restore();
+                });
+            }
+
+            getPhotoPosition(index, config) {
+                const padding = 20;
+                const availableWidth = config.width - (padding * 2);
+                const availableHeight = config.height - (padding * 2);
+                
+                switch(this.currentLayout) {
+                    case 'single':
+                        return { x: padding, y: padding, width: availableWidth, height: availableHeight };
+                    
+                    case 'double':
+                        const doubleWidth = (availableWidth - 10) / 2;
+                        return { 
+                            x: padding + (index * (doubleWidth + 10)), 
+                            y: padding, 
+                            width: doubleWidth, 
+                            height: availableHeight 
+                        };
+                    
+                    case 'quad':
+                        const quadWidth = (availableWidth - 10) / 2;
+                        const quadHeight = (availableHeight - 10) / 2;
+                        const row = Math.floor(index / 2);
+                        const col = index % 2;
+                        return { 
+                            x: padding + (col * (quadWidth + 10)), 
+                            y: padding + (row * (quadHeight + 10)), 
+                            width: quadWidth, 
+                            height: quadHeight 
+                        };
+                    
+                    case 'strip':
+                        const stripHeight = (availableHeight - 30) / 4;
+                        return { 
+                            x: padding, 
+                            y: padding + (index * (stripHeight + 10)), 
+                            width: availableWidth, 
+                            height: stripHeight 
+                        };
+                }
+            }
+
+            downloadPhoto() {
+                if (this.currentSession.length === 0) return;
+                
+                // Create the final image
+                const config = this.layoutConfig[this.currentLayout];
+                const finalCanvas = document.createElement('canvas');
+                const finalCtx = finalCanvas.getContext('2d');
+                
+                // Set canvas size
+                finalCanvas.width = config.width;
+                finalCanvas.height = config.height;
+                
+                // White background
+                finalCtx.fillStyle = 'white';
+                finalCtx.fillRect(0, 0, config.width, config.height);
+                
+                // Process each photo in the session
+                this.currentSession.forEach((photoData, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create a temporary canvas for applying filters
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        // Set temp canvas size to match the image
+                        tempCanvas.width = img.width;
+                        tempCanvas.height = img.height;
+                        
+                        // Draw the image
+                        tempCtx.drawImage(img, 0, 0);
+                        
+                        // Apply filter if not none
+                        if (this.currentFilter !== 'none') {
+                            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                            const filteredData = this.filterEffects[this.currentFilter](imageData);
+                            tempCtx.putImageData(filteredData, 0, 0);
+                        }
+                        
+                        // Get the position for this photo in the layout
+                        const { x, y, width, height } = this.getPhotoPosition(index, config);
+                        
+                        // Draw the filtered image to the final canvas
+                        finalCtx.drawImage(tempCanvas, x, y, width, height);
+                        
+                        // Add decorations
+                        if (this.currentDecorations.length > 0) {
+                            this.addDecorations(finalCtx, x, y, width, height);
+                        }
+                        
+                        // If this is the last photo, save the photo
+                        if (index === this.currentSession.length - 1) {
+                            const finalDataURL = finalCanvas.toDataURL('image/jpeg', 0.9);
+                            this.savePhoto(finalDataURL);
+                            
+                            // Download the photo
+                            const link = document.createElement('a');
+                            link.download = `photobooth-${this.currentLayout}-${Date.now()}.jpg`;
+                            link.href = finalDataURL;
+                            link.click();
+                        }
+                    };
+                    img.src = photoData;
+                });
+            }
+
+            createGif() {
+                if (this.currentSession.length === 0) return;
+                
+                const gif = new GIF({
+                    workers: 2,
+                    quality: 10,
+                    width: 400,
+                    height: 300
+                });
+                
+                // Add each photo to the GIF
+                this.currentSession.forEach((photoData, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create a temporary canvas for applying filters
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        // Set temp canvas size
+                        tempCanvas.width = 400;
+                        tempCanvas.height = 300;
+                        
+                        // Draw the image
+                        tempCtx.drawImage(img, 0, 0, 400, 300);
+                        
+                        // Apply filter if not none
+                        if (this.currentFilter !== 'none') {
+                            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                            const filteredData = this.filterEffects[this.currentFilter](imageData);
+                            tempCtx.putImageData(filteredData, 0, 0);
+                        }
+                        
+                        // Add decorations
+                        if (this.currentDecorations.length > 0) {
+                            this.addDecorations(tempCtx, 0, 0, 400, 300);
+                        }
+                        
+                        // Add frame to GIF
+                        gif.addFrame(tempCanvas, {delay: 1000});
+                        
+                        // If this is the last photo, render the GIF
+                        if (index === this.currentSession.length - 1) {
+                            gif.on('finished', (blob) => {
+                                const url = URL.createObjectURL(blob);
+                                this.currentGif = url;
+                                
+                                // Show GIF preview
+                                const gifPreview = document.getElementById('gifPreview');
+                                const gifImage = document.getElementById('gifImage');
+                                const downloadGifBtn = document.getElementById('downloadGifBtn');
+                                
+                                gifPreview.style.display = 'block';
+                                gifImage.src = url;
+                                gifImage.style.display = 'block';
+                                downloadGifBtn.style.display = 'inline-block';
+                            });
+                            
+                            gif.render();
+                        }
+                    };
+                    img.src = photoData;
+                });
+            }
+
+            downloadGif() {
+                if (!this.currentGif) return;
+                
+                const link = document.createElement('a');
+                link.download = `photobooth-gif-${Date.now()}.gif`;
+                link.href = this.currentGif;
+                link.click();
+            }
+
+            savePhoto(dataURL) {
+                const photo = {
+                    id: Date.now(),
+                    data: dataURL,
+                    layout: this.currentLayout,
+                    filter: this.currentFilter,
+                    decorations: [...this.currentDecorations],
+                    timestamp: new Date().toLocaleString()
+                };
+                
+                this.photos.unshift(photo);
+                if (this.photos.length > 100) {
+                    this.photos = this.photos.slice(0, 100);
+                }
+                
+                localStorage.setItem('photobooth-pro-photos', JSON.stringify(this.photos));
+                this.updatePhotoGrid();
+            }
+
+            updatePhotoGrid() {
+                if (this.photos.length === 0) {
+                    this.photoGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; color: #999; padding: 20px;">
+                            <i class="fas fa-images" style="font-size: 30px; margin-bottom: 10px; display: block;"></i>
+                            Your photo strips will appear here
+                        </div>
+                    `;
+                    return;
+                }
+
+                this.photoGrid.innerHTML = '';
+                this.photos.forEach((photo, index) => {
+                    const photoItem = document.createElement('div');
+                    photoItem.className = 'photo-item';
+                    photoItem.innerHTML = `
+                        <img src="${photo.data}" alt="Photo ${index + 1}">
+                        <div class="photo-actions">
+                            <button class="action-btn" onclick="photoBooth.downloadSavedPhoto(${JSON.stringify(photo).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="action-btn" onclick="photoBooth.deletePhoto(${photo.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    this.photoGrid.appendChild(photoItem);
+                });
+            }
+
+            downloadSavedPhoto(photo) {
+                const link = document.createElement('a');
+                link.download = `photobooth-${photo.layout}-${photo.id}.jpg`;
+                link.href = photo.data;
+                link.click();
+            }
+
+            deletePhoto(photoId) {
+                this.photos = this.photos.filter(photo => photo.id !== photoId);
+                localStorage.setItem('photobooth-pro-photos', JSON.stringify(this.photos));
+                this.updatePhotoGrid();
+            }
+
+            triggerFlash() {
+                this.flashEffect.classList.add('active');
+                setTimeout(() => this.flashEffect.classList.remove('active'), 300);
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Initialize PhotoBooth
+        const photoBooth = new PhotoBoothPro();
+    </script>
+</body>
+</html>
